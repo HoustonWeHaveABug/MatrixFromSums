@@ -6,7 +6,7 @@ Parameters expected on standard input:
 - number of columns > 0
 - maximum value > 0
 
-With number of rows >= number of columns
+With number of rows >= number of columns.
 
 The row/column sums (sums_y, sums_x below) are generated automatically from random values between 1 and \<maximum value\> but the program can be easily modified to read them from the standard input.
 
