@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <math.h>
+#include <limits.h>
 #include "mtrand.h"
 
 typedef struct {
@@ -24,19 +25,22 @@ int compare_corrections(const void *, const void *);
 void apply_correction(correction_t *);
 void print_matrix(const char *);
 int rand_int(int);
+void free_data(void);
 
-int rows_n, columns_n, *sums_y, *sums_x, total;
+int rows_n, columns_n, *sums_y, *sums_x, total_sums_y;
 cell_t *cells;
+correction_t *corrections;
 
 int main(void) {
 	int val_max, cells_n, y, x, cell_idx;
-	correction_t *corrections;
-	if (scanf("%d%d%d", &rows_n, &columns_n, &val_max) != 3 || rows_n < 1 || columns_n < 1 || val_max < 1 || rows_n < columns_n) {
+	if (scanf("%d%d%d", &rows_n, &columns_n, &val_max) != 3 || rows_n < 1 || columns_n < 1 || val_max < 0 || rows_n < columns_n || rows_n > INT_MAX/columns_n) {
 		fprintf(stderr, "Parameters expected on standard input\n");
-		fprintf(stderr, "- number of rows > 0\n");
-		fprintf(stderr, "- number of columns > 0\n");
-		fprintf(stderr, "- maximum value > 0\n");
-		fprintf(stderr, "With number of rows >= number of columns\n");
+		fprintf(stderr, "- rows_n (number of rows) > 0\n");
+		fprintf(stderr, "- columns_n (number of columns) > 0\n");
+		fprintf(stderr, "- val_max (maximum value) >= 0\n");
+		fprintf(stderr, "With rows_n >= columns_n and rows_n*columns_n <= INT_MAX\n");
+		fprintf(stderr, "If val_max is > 0 then row/column sums are generated from random values between 1 and val_max\n");
+		fprintf(stderr, "Otherwise row/column sums are read from standard input\n");
 		fflush(stderr);
 		return EXIT_FAILURE;
 	}
@@ -72,14 +76,50 @@ int main(void) {
 		return EXIT_FAILURE;
 	}
 	smtrand((unsigned long)time(NULL));
-	total = 0;
-	for (y = 0; y < rows_n; y++) {
-		for (x = 0; x < columns_n; x++) {
-			int val = rand_int(val_max)+1;
-			sums_y[y] += val;
-			sums_x[x] += val;
+	total_sums_y = 0;
+	if (val_max > 0) {
+		for (y = 0; y < rows_n; y++) {
+			for (x = 0; x < columns_n; x++) {
+				int val = rand_int(val_max)+1;
+				sums_y[y] += val;
+				sums_x[x] += val;
+			}
+			if (sums_y[y] > INT_MAX-total_sums_y) {
+				fprintf(stderr, "Total of sums overflow\n");
+				fflush(stderr);
+				free_data();
+				return EXIT_FAILURE;
+			}
+			total_sums_y += sums_y[y];
 		}
-		total += sums_y[y];
+	}
+	else {
+		int total_sums_x;
+		for (y = 0; y < rows_n; y++) {
+			if (scanf("%d", sums_y+y) != 1 || sums_y[y] < columns_n || sums_y[y] > INT_MAX-total_sums_y) {
+				fprintf(stderr, "Invalid row sum or total of row sums overflow\n");
+				fflush(stderr);
+				free_data();
+				return EXIT_FAILURE;
+			}
+			total_sums_y += sums_y[y];
+		}
+		total_sums_x = 0;
+		for (x = 0; x < columns_n; x++) {
+			if (scanf("%d", sums_x+x) != 1 || sums_x[x] < rows_n || sums_x[x] > INT_MAX-total_sums_x) {
+				fprintf(stderr, "Invalid column sum or total of column sums overflow\n");
+				fflush(stderr);
+				free_data();
+				return EXIT_FAILURE;
+			}
+			total_sums_x += sums_x[x];
+		}
+		if (total_sums_y != total_sums_x) {
+			fprintf(stderr, "Mismatch between total of row sums and total of column sums\n");
+			fflush(stderr);
+			free_data();
+			return EXIT_FAILURE;
+		}
 	}
 	puts("SUMS Y");
 	for (y = 0; y < rows_n; y++) {
@@ -118,9 +158,9 @@ int main(void) {
 	}
 	print_matrix("AFTER CORRECTIONS");
 	for (cell_idx = 0; cell_idx < cells_n; cell_idx++) {
-		int y1 = rand_int(rows_n), x1 = rand_int(columns_n), y2 = rand_int(rows_n), x2 = rand_int(columns_n);
-		if (y1 != y2 && x1 != x2) {
-			int cell_dec1 = y1*columns_n+x1, cell_dec2 = y2*columns_n+x2, offset_max;
+		int rand_y1 = rand_int(rows_n), rand_x1 = rand_int(columns_n), rand_y2 = rand_int(rows_n), rand_x2 = rand_int(columns_n);
+		if (rand_y1 != rand_y2 && rand_x1 != rand_x2) {
+			int cell_dec1 = rand_y1*columns_n+rand_x1, cell_dec2 = rand_y2*columns_n+rand_x2, offset_max;
 			if (cells[cell_dec1].weight_int < cells[cell_dec2].weight_int) {
 				offset_max = cells[cell_dec1].weight_int;
 			}
@@ -131,21 +171,18 @@ int main(void) {
 				int offset = rand_int(offset_max);
 				cells[cell_dec1].weight_int -= offset;
 				cells[cell_dec2].weight_int -= offset;
-				cells[y1*columns_n+x2].weight_int += offset;
-				cells[y2*columns_n+x1].weight_int += offset;
+				cells[rand_y1*columns_n+rand_x2].weight_int += offset;
+				cells[rand_y2*columns_n+rand_x1].weight_int += offset;
 			}
 		}
 	}
 	print_matrix("AFTER RANDOM CHANGES");
-	free(corrections);
-	free(cells);
-	free(sums_x);
-	free(sums_y);
+	free_data();
 	return EXIT_SUCCESS;
 }
 
 void set_cell_and_weight_sums(cell_t *cell, int y, int x) {
-	cell->weight = (double)sums_y[y]*sums_x[x]/total;
+	cell->weight = (double)sums_y[y]*sums_x[x]/total_sums_y;
 	cell->weight_int = (int)floor(cell->weight);
 	sums_y[y+rows_n] += cell->weight_int;
 	sums_x[x+columns_n] += cell->weight_int;
@@ -203,4 +240,11 @@ void print_matrix(const char *title) {
 
 int rand_int(int val) {
 	return (int)emtrand((unsigned long)val);
+}
+
+void free_data(void) {
+	free(corrections);
+	free(cells);
+	free(sums_x);
+	free(sums_y);
 }
