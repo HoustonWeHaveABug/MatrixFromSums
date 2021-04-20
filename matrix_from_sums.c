@@ -160,19 +160,32 @@ int main(void) {
 	for (cell_idx = 0; cell_idx < cells_n; cell_idx++) {
 		int rand_y1 = rand_int(rows_n), rand_x1 = rand_int(columns_n), rand_y2 = rand_int(rows_n), rand_x2 = rand_int(columns_n);
 		if (rand_y1 != rand_y2 && rand_x1 != rand_x2) {
-			int cell_dec1 = rand_y1*columns_n+rand_x1, cell_dec2 = rand_y2*columns_n+rand_x2, offset_max;
-			if (cells[cell_dec1].weight_int < cells[cell_dec2].weight_int) {
-				offset_max = cells[cell_dec1].weight_int;
+			int cell_dec1 = rand_y1*columns_n+rand_x1, cell_dec2 = rand_y1*columns_n+rand_x2, cell_dec3 = rand_y2*columns_n+rand_x1, cell_dec4 = rand_y2*columns_n+rand_x2, offset_max14, offset_max23, offset;
+			if (cells[cell_dec1].weight_int < cells[cell_dec4].weight_int) {
+				offset_max14 = cells[cell_dec1].weight_int;
 			}
 			else {
-				offset_max = cells[cell_dec2].weight_int;
+				offset_max14 = cells[cell_dec4].weight_int;
 			}
-			if (offset_max > 1) {
-				int offset = rand_int(offset_max);
-				cells[cell_dec1].weight_int -= offset;
+			if (cells[cell_dec2].weight_int < cells[cell_dec3].weight_int) {
+				offset_max23 = cells[cell_dec2].weight_int;
+			}
+			else {
+				offset_max23 = cells[cell_dec3].weight_int;
+			}
+			if (offset_max14 < offset_max23) {
+				offset = rand_int(offset_max23);
+				cells[cell_dec1].weight_int += offset;
 				cells[cell_dec2].weight_int -= offset;
-				cells[rand_y1*columns_n+rand_x2].weight_int += offset;
-				cells[rand_y2*columns_n+rand_x1].weight_int += offset;
+				cells[cell_dec3].weight_int -= offset;
+				cells[cell_dec4].weight_int += offset;
+			}
+			else {
+				offset = rand_int(offset_max14);
+				cells[cell_dec1].weight_int -= offset;
+				cells[cell_dec2].weight_int += offset;
+				cells[cell_dec3].weight_int += offset;
+				cells[cell_dec4].weight_int -= offset;
 			}
 		}
 	}
