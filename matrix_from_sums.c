@@ -81,7 +81,19 @@ int main(void) {
 		for (y = 0; y < rows_n; y++) {
 			for (x = 0; x < columns_n; x++) {
 				int val = rand_int(val_max)+1;
+				if (val > INT_MAX-sums_y[y]) {
+					fprintf(stderr, "Row sum overflow\n");
+					fflush(stderr);
+					free_data();
+					return EXIT_FAILURE;
+				}
 				sums_y[y] += val;
+				if (val > INT_MAX-sums_x[x]) {
+					fprintf(stderr, "Column sum overflow\n");
+					fflush(stderr);
+					free_data();
+					return EXIT_FAILURE;
+				}
 				sums_x[x] += val;
 			}
 			if (sums_y[y] > INT_MAX-total_sums_y) {
